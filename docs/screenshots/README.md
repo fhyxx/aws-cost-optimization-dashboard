@@ -4,7 +4,7 @@ These four PNGs are supplied captures of the running Streamlit application using
 
 - `dashboard-overview.png` shows the executive dashboard overview.
 - `spend-trends.png` shows monthly spend trends and service mix.
-- `anomaly-review.png` shows the anomaly review section. It was captured before the latest anomaly-ranking correction, so it does not demonstrate the corrected ranking/table.
+- `anomaly-review.png` shows the anomaly review section. It predates the current anomaly-ranking correction, so it does not demonstrate the current anomaly/recommendation selection logic.
 - `recommendations.png` shows optimization recommendations and export controls.
 
 Mobile visual verification is still outstanding. These images should not be represented as mobile evidence or as verification of behavior beyond the visible captured viewport.
