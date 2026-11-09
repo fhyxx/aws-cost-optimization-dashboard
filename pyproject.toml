@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-cost-optimization-dashboard"
+version = "0.1.0"
+description = "Local AWS billing analytics dashboard with clearly labelled synthetic demonstration data."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2,<4.0",
+  "plotly>=5.24,<7.0",
+  "pydantic>=2.10,<3.0",
+  "streamlit>=1.41,<2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.14,<2.0",
+  "pandas-stubs>=2.2",
+  "pytest>=8.3,<9.0",
+  "ruff>=0.9,<1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"] # Long user-facing evidence strings are kept intact; Ruff format checks code layout.
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src/aws_cost_dashboard"]
