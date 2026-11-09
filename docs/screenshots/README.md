@@ -9,4 +9,4 @@ These four PNGs are supplied captures of the running Streamlit application using
 
 Mobile visual verification is still outstanding. These images should not be represented as mobile evidence or as verification of behavior beyond the visible captured viewport.
 
-In the supplied anomaly-review and recommendations captures, the wide data tables extend beyond the right edge of the viewport, so some columns are not visible. The overview and spend-trend charts are readable in the captured area; lower content in the overview continues below the viewport.
+In the supplied anomaly-review and recommendations captures, the wide data tables extend beyond the right edge of the viewport, so some columns are not visible. The anomaly-review screenshot also predates the current distinction between `change_usd` and `anomaly_increase_usd`; it is historical visual evidence, not proof of the current anomaly ranking or current table contents. The overview and spend-trend charts are readable in the captured area; lower content in the overview continues below the viewport.
