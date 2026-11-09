@@ -44,7 +44,6 @@ def test_sample_dataset_contains_introduced_anomalies() -> None:
     assert "2026-02" in set(found["billing_month"])
 
 
-
 def test_median_only_anomaly_uses_median_deviation_for_ranking() -> None:
     # The final month is flat MoM, but is twice the prior-history median.
     anomalies = detect_cost_anomalies(
@@ -57,6 +56,7 @@ def test_median_only_anomaly_uses_median_deviation_for_ranking() -> None:
     assert row["change_usd"] == 0.0
     assert row["anomaly_increase_usd"] == 100.0
     assert row["change_percent"] == 0.0
+
 
 def test_missing_month_is_not_mistaken_for_previous_month() -> None:
     frame = make_series([100, 100, 100, 500]).drop(index=3).copy()
