@@ -70,13 +70,17 @@ def detect_cost_anomalies(
             )
             actual = float(current["actual_usd"])
             median = float(prior["actual_usd"].median()) if not prior.empty else 0.0
-            delta = actual - previous if previous is not None else actual - median
-            percent = (delta / previous * 100) if previous is not None and previous > 0 else None
+            mom_delta = actual - previous if previous is not None else None
+            percent = (
+                mom_delta / previous * 100
+                if mom_delta is not None and previous is not None and previous > 0
+                else None
+            )
             mom_flag = (
-                previous is not None
+                mom_delta is not None
                 and percent is not None
                 and percent >= percent_threshold
-                and delta >= minimum_increase_usd
+                and mom_delta >= minimum_increase_usd
             )
             median_delta = actual - median
             median_flag = (
@@ -87,6 +91,14 @@ def detect_cost_anomalies(
             )
             if not (mom_flag or median_flag):
                 continue
+            # Rank a flagged row by the increase against the baseline(s) that
+            # actually triggered it, not by an unrelated MoM delta.
+            qualifying_deltas = [
+                value
+                for value, triggered in ((mom_delta, mom_flag), (median_delta, median_flag))
+                if triggered and value is not None
+            ]
+            anomaly_increase = max(qualifying_deltas)
             rules: list[str] = []
             if mom_flag:
                 rules.append("MoM spike")
@@ -102,7 +114,7 @@ def detect_cost_anomalies(
                     "actual_usd": round(actual, 2),
                     "previous_month_usd": round(previous, 2) if previous is not None else None,
                     "history_median_usd": round(median, 2),
-                    "change_usd": round(delta, 2),
+                    "change_usd": round(anomaly_increase, 2),
                     "change_percent": round(percent, 2) if percent is not None else None,
                     "rule": " + ".join(rules),
                     "rule_agreement": "Both rules" if len(rules) == 2 else "One rule",
