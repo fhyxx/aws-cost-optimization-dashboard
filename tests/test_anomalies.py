@@ -44,6 +44,19 @@ def test_sample_dataset_contains_introduced_anomalies() -> None:
     assert "2026-02" in set(found["billing_month"])
 
 
+
+def test_median_only_anomaly_uses_median_deviation_for_ranking() -> None:
+    # The final month is flat MoM, but is twice the prior-history median.
+    anomalies = detect_cost_anomalies(
+        make_series([100, 100, 100, 200, 200]),
+        percent_threshold=50,
+        minimum_increase_usd=100,
+    )
+    row = anomalies.loc[anomalies["billing_month"] == "2025-05"].iloc[0]
+    assert row["rule"] == "rolling-median spike"
+    assert row["change_usd"] == 100.0
+    assert row["change_percent"] == 0.0
+
 def test_missing_month_is_not_mistaken_for_previous_month() -> None:
     frame = make_series([100, 100, 100, 500]).drop(index=3).copy()
     frame.loc[len(frame)] = {
