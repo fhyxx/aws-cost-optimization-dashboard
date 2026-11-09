@@ -80,7 +80,7 @@ def build_recommendations(
         )
 
     if not anomalies.empty:
-        top = anomalies.sort_values("change_usd", ascending=False).iloc[0]
+        top = anomalies.sort_values("anomaly_increase_usd", ascending=False).iloc[0]
         recommendations.append(
             Recommendation(
                 priority="High",
