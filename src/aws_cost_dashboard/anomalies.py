@@ -115,9 +115,7 @@ def detect_cost_anomalies(
                     "actual_usd": round(actual, 2),
                     "previous_month_usd": round(previous, 2) if previous is not None else None,
                     "history_median_usd": round(median, 2),
-                    "change_usd": round(
-                        mom_delta if mom_delta is not None else median_delta, 2
-                    ),
+                    "change_usd": round(mom_delta if mom_delta is not None else median_delta, 2),
                     "anomaly_increase_usd": round(anomaly_increase, 2),
                     "change_percent": round(percent, 2) if percent is not None else None,
                     "rule": " + ".join(rules),
