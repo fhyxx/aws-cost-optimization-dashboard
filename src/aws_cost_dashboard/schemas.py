@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -19,6 +19,7 @@ class BillingRecord(BaseModel):
     region: str = Field(min_length=1, max_length=64)
     service: str = Field(min_length=1, max_length=128)
     unblended_cost: float = Field(allow_inf_nan=False)
+    currency: Literal["USD"] = "USD"
     usage_quantity: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     usage_unit: str | None = None
     usage_type: str | None = None
@@ -36,6 +37,7 @@ _ALIASES: dict[str, tuple[str, ...]] = {
     "region": ("region", "region_code", "product_region_code", "product_region"),
     "service": ("service", "service_name", "product_servicename", "line_item_product_code"),
     "unblended_cost": ("unblended_cost", "cost", "line_item_unblended_cost"),
+    "currency": ("currency", "currency_code", "line_item_currency_code"),
     "usage_quantity": ("usage_quantity", "usage_amount", "line_item_usage_amount"),
     "usage_unit": ("usage_unit", "unit", "pricing_unit"),
     "usage_type": ("usage_type", "line_item_usage_type"),
@@ -86,6 +88,10 @@ def _normalize_columns(frame: pd.DataFrame) -> pd.DataFrame:
         result["usage_unit"] = None
     if "usage_type" not in result.columns:
         result["usage_type"] = None
+    if "currency" not in result.columns:
+        result["currency"] = "USD"
+    else:
+        result["currency"] = result["currency"].astype("string").str.strip().str.upper()
     service_names = {
         "AmazonEC2": "Amazon EC2",
         "AmazonRDS": "Amazon RDS",
@@ -136,7 +142,9 @@ def read_billing_csv(upload: Any) -> pd.DataFrame:
     """Read an uploaded CSV and translate parser failures into actionable messages."""
     try:
         raw = pd.read_csv(
-            upload, dtype={"account_id": "string", "line_item_usage_account_id": "string"}
+            upload,
+            dtype={"account_id": "string", "line_item_usage_account_id": "string"},
+            nrows=500_001,
         )
     except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, ValueError) as exc:
         raise ValueError(

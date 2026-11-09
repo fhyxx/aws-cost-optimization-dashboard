@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 _GROUP_COLUMNS = ["account", "region", "service"]
@@ -30,14 +32,23 @@ def detect_cost_anomalies(
         "change_usd",
         "change_percent",
         "rule",
+        "rule_agreement",
         "confidence",
         "explanation",
     ]
     if frame.empty:
         return pd.DataFrame(columns=columns)
-    if history_months < 1 or minimum_increase_usd < 0 or percent_threshold < 0:
+    thresholds = (percent_threshold, minimum_increase_usd, median_multiple)
+    if (
+        history_months < 1
+        or any(not math.isfinite(value) for value in thresholds)
+        or minimum_increase_usd < 0
+        or percent_threshold < 0
+        or median_multiple <= 0
+    ):
         raise ValueError(
-            "Anomaly thresholds must be non-negative and history_months must be positive."
+            "Anomaly thresholds must be finite and non-negative, median_multiple must be positive, "
+            "and history_months must be positive."
         )
 
     monthly = frame.groupby([*_GROUP_COLUMNS, "billing_month"], as_index=False).agg(
@@ -46,22 +57,31 @@ def detect_cost_anomalies(
     output: list[dict[str, object]] = []
     for key, group in monthly.groupby(_GROUP_COLUMNS, sort=False):
         series = group.sort_values("billing_month").reset_index(drop=True)
-        for index in range(1, len(series)):
-            prior = series.iloc[max(0, index - history_months) : index]
+        periods = series["billing_month"].map(lambda month: pd.Period(str(month), freq="M"))
+        for index in range(len(series)):
             current = series.iloc[index]
-            previous = float(series.iloc[index - 1]["actual_usd"])
+            current_period = periods.iloc[index]
+            prior_mask = (periods >= current_period - history_months) & (periods < current_period)
+            prior = series.loc[prior_mask]
+            previous_mask = periods == current_period - 1
+            previous_rows = series.loc[previous_mask]
+            previous = (
+                float(previous_rows.iloc[0]["actual_usd"]) if not previous_rows.empty else None
+            )
             actual = float(current["actual_usd"])
-            median = float(prior["actual_usd"].median())
-            delta = actual - previous
-            percent = delta / previous * 100 if previous > 0 else None
+            median = float(prior["actual_usd"].median()) if not prior.empty else 0.0
+            delta = actual - previous if previous is not None else actual - median
+            percent = (delta / previous * 100) if previous is not None and previous > 0 else None
             mom_flag = (
-                percent is not None
+                previous is not None
+                and percent is not None
                 and percent >= percent_threshold
                 and delta >= minimum_increase_usd
             )
             median_delta = actual - median
             median_flag = (
-                median > 0
+                len(prior) >= min(3, history_months)
+                and median > 0
                 and actual >= median * median_multiple
                 and median_delta >= minimum_increase_usd
             )
@@ -80,16 +100,21 @@ def detect_cost_anomalies(
                     "region": region,
                     "service": service,
                     "actual_usd": round(actual, 2),
-                    "previous_month_usd": round(previous, 2),
+                    "previous_month_usd": round(previous, 2) if previous is not None else None,
                     "history_median_usd": round(median, 2),
                     "change_usd": round(delta, 2),
                     "change_percent": round(percent, 2) if percent is not None else None,
                     "rule": " + ".join(rules),
-                    "confidence": "High" if len(rules) == 2 else "Medium",
+                    "rule_agreement": "Both rules" if len(rules) == 2 else "One rule",
+                    "confidence": "Low",
                     "explanation": (
-                        f"{service} in {account} / {region} rose by ${delta:,.2f} versus the prior month; "
-                        f"the prior {len(prior)}-month median was ${median:,.2f}. "
-                        f"Rule(s): {' + '.join(rules)}. This is a billing pattern to investigate, not a root-cause finding."
+                        f"{service} in {account} / {region} billed ${actual:,.2f} in "
+                        f"{current['billing_month']}; the calendar prior-month value is "
+                        f"{'$' + format(previous, ',.2f') if previous is not None else 'unavailable'}. "
+                        f"The prior {history_months} calendar-month window contains "
+                        f"{len(prior)} observed month(s), with a median of ${median:,.2f}. "
+                        f"Rule(s): {' + '.join(rules)}. Rule agreement is not statistical confidence; "
+                        "this billing pattern needs investigation and does not identify root cause."
                     ),
                 }
             )

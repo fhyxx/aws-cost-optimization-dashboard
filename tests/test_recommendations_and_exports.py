@@ -91,3 +91,22 @@ def test_export_package_contains_analysis_and_recommendations() -> None:
             "README.txt",
         } <= names
         assert b"SYNTHETIC DEMONSTRATION DATA" in archive.read("README.txt")
+
+
+def test_export_escapes_spreadsheet_formulas_in_user_supplied_text() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "billing_month": "2025-01",
+                "account": '=HYPERLINK("https://example.invalid")',
+                "region": "us-east-1",
+                "service": "Amazon EC2",
+                "unblended_cost": 100.0,
+            }
+        ]
+    )
+    package = build_export_bundle(
+        frame, pd.DataFrame(), [], data_label="uploaded demonstration input"
+    )
+    with ZipFile(BytesIO(package)) as archive:
+        assert b"'=HYPERLINK" in archive.read("cost_by_account.csv")

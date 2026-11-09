@@ -40,8 +40,9 @@ Required fields:
 | `region` | `region_code`, `product_region_code`, `product_region` | AWS Region code or region label. |
 | `service` | `service_name`, `product_servicename`, `line_item_product_code` | Common CUR product codes are normalized. |
 | `unblended_cost` | `cost`, `line_item_unblended_cost` | Numeric USD amount; signed credits/adjustments are allowed. |
+| `currency` (optional) | `currency_code`, `line_item_currency_code` | Defaults to USD when absent; if supplied, every row must be USD. No conversion or mixed-currency aggregation is performed. |
 
-Optional fields include `usage_quantity` (`usage_amount` / `line_item_usage_amount`), `usage_unit` (`unit` / `pricing_unit`) and `usage_type` (`line_item_usage_type`). Extra columns are ignored. Export or normalize the AWS CUR/Cost Explorer data to one monthly billing currency before upload; this first version does not reconcile blended/unblended cost, taxes, credits, refunds, Savings Plans or Reserved Instance amortization across different billing views.
+Optional fields include `usage_quantity` (`usage_amount` / `line_item_usage_amount`), `usage_unit` (`unit` / `pricing_unit`) and `usage_type` (`line_item_usage_type`). Extra columns are ignored. CSV uploads are limited to 25 MB and 500,000 rows. If a currency field is included, non-USD and mixed-currency files are rejected. If absent, the data is assumed to already be USD. Export or normalize the AWS CUR/Cost Explorer data to one monthly billing currency before upload; this first version does not reconcile blended/unblended cost, taxes, credits, refunds, Savings Plans or Reserved Instance amortization across different billing views. Duplicate input rows are summed as separate billing lines: there is no safe deduplication without stable source line-item identifiers.
 
 ## Tests and quality checks
 
@@ -75,7 +76,8 @@ Regenerate the checked-in sample deterministically with:
 - Spend and anomaly outputs are derived only from uploaded billing fields. They cannot establish utilization, idle resources, engineering root cause, architecture suitability or achievable savings.
 - The EC2 savings range is an illustrative percentage applied to the latest-month EC2 billed cost. It is user-adjustable, is not a price quote or expected result, and is not additive to other recommendations.
 - Rightsizing, commitment selection and storage lifecycle changes require service-specific telemetry, pricing terms and operational review.
-- The built-in anomaly detector is an explainable threshold rule, not statistical/ML root-cause detection. It flags cost increases only.
+- Missing calendar months remain unknown gaps in trends and do not act as zero-spend months or MoM comparison periods. The anomaly rule compares MoM only to the immediately prior calendar month; its rolling median uses up to six prior calendar months and requires at least three observed months. Both thresholds are heuristics, and reported confidence is deliberately Low because the rules are not statistically calibrated.
+- The built-in anomaly detector is an explainable threshold rule, not statistical/ML root-cause detection. It flags increases only; signed credits and adjustments are retained in totals and can affect aggregated service baselines.
 - The initial schema expects monthly USD amounts and one billing perspective. Currency conversion and CUR-specific amortization semantics are not implemented.
 - Synthetic records have deliberately injected anomalies; do not treat them as client requirements or production evidence.
 

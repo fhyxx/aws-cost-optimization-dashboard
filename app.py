@@ -45,7 +45,7 @@ st.caption(
 with st.sidebar:
     st.header("Billing data")
     st.caption("Runs locally. No AWS API calls or credentials are used.")
-    uploaded = st.file_uploader("Upload normalized billing CSV", type=["csv"])
+    uploaded = st.file_uploader("Upload normalized billing CSV", type=["csv"], max_upload_size=25)
 
 if uploaded is None:
     try:
@@ -134,7 +134,8 @@ metric_columns[3].metric("Billing months", f"{filtered['billing_month'].nunique(
 
 st.caption(
     "Spend is the sum of uploaded unblended costs after filters. Billing records do not show utilization, "
-    "waste, business criticality, or root cause. Savings scenarios are illustrative and not additive."
+    "waste, business criticality, or root cause. Missing months are unknown gaps, not zero spend; MoM is "
+    "shown only when the immediately prior calendar month is present. Savings scenarios are illustrative and not additive."
 )
 
 left, right = st.columns((1.65, 1))
@@ -148,8 +149,9 @@ with left:
         markers=True,
         labels={"billing_month": "Billing month", "spend": "Spend (USD)"},
     )
+    trend_figure.update_traces(connectgaps=False)
     trend_figure.update_layout(margin={"l": 8, "r": 8, "t": 12, "b": 8}, hovermode="x unified")
-    st.plotly_chart(trend_figure, use_container_width=True)
+    st.plotly_chart(trend_figure, width="stretch")
 with right:
     st.subheader("Latest-month service mix")
     latest = filtered[filtered["billing_month"] == kpis.current_month]
@@ -166,7 +168,7 @@ with right:
         margin={"l": 8, "r": 8, "t": 12, "b": 8},
         yaxis={"categoryorder": "total ascending"},
     )
-    st.plotly_chart(service_figure, use_container_width=True)
+    st.plotly_chart(service_figure, width="stretch")
 
 st.subheader("Cost breakdown")
 breakdown_tabs = st.tabs(["AWS service", "Region", "Account"])
@@ -178,14 +180,15 @@ for tab, dimension in zip(breakdown_tabs, ("service", "region", "account"), stri
                 columns={dimension: dimension.replace("_", " ").title(), "spend": "Spend (USD)"}
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
 st.subheader("Cost anomaly review")
 st.caption(
     f"Rule: flag a cost increase of at least {mom_threshold}% and ${minimum_increase:,.0f} month over month, "
-    "or a charge at least 1.5× the previous six-month median and the same dollar threshold. "
-    "This identifies unusual billing movement; it does not diagnose the cause."
+    "or a charge at least 1.5× the prior six-calendar-month median and the same dollar threshold "
+    "(minimum three observed months). Missing months are not treated as zero. Confidence is Low because "
+    "the rules are not statistically calibrated. This identifies unusual billing movement; it does not diagnose the cause."
 )
 anomalies = detect_cost_anomalies(
     filtered,
@@ -195,7 +198,7 @@ anomalies = detect_cost_anomalies(
 if anomalies.empty:
     st.success("No cost spikes matched the current rule and filters.")
 else:
-    st.dataframe(anomalies, hide_index=True, use_container_width=True)
+    st.dataframe(anomalies, hide_index=True, width="stretch")
 
 st.subheader("Optimization recommendations")
 recommendations = build_recommendations(
@@ -213,7 +216,7 @@ recommendations_table = recommendations_frame(recommendations)
 if recommendations_table.empty:
     st.write("No recommendations were generated for the selected data.")
 else:
-    st.dataframe(recommendations_table, hide_index=True, use_container_width=True)
+    st.dataframe(recommendations_table, hide_index=True, width="stretch")
 
 st.subheader("Export analysis")
 export_bytes = build_export_bundle(filtered, anomalies, recommendations, data_label=source_label)

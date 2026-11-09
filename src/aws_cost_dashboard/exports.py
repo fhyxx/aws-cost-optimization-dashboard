@@ -11,6 +11,20 @@ from aws_cost_dashboard.analysis import cost_breakdown, monthly_totals
 from aws_cost_dashboard.recommendations import Recommendation
 
 
+def _safe_csv(frame: pd.DataFrame) -> str:
+    """Escape spreadsheet formula prefixes in uploaded text before CSV export."""
+    safe = frame.copy()
+    for column in safe.select_dtypes(include=["object", "string"]).columns:
+        safe[column] = safe[column].map(
+            lambda value: (
+                "'" + value
+                if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@"))
+                else value
+            )
+        )
+    return safe.to_csv(index=False)
+
+
 def build_export_bundle(
     frame: pd.DataFrame,
     anomalies: pd.DataFrame,
@@ -21,14 +35,14 @@ def build_export_bundle(
     """Package filtered billing summaries, anomalies and recommendations as CSV files."""
     memory = BytesIO()
     with ZipFile(memory, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("monthly_trend.csv", monthly_totals(frame).to_csv(index=False))
+        archive.writestr("monthly_trend.csv", _safe_csv(monthly_totals(frame)))
         for dimension in ("service", "region", "account"):
             archive.writestr(
-                f"cost_by_{dimension}.csv", cost_breakdown(frame, dimension).to_csv(index=False)
+                f"cost_by_{dimension}.csv", _safe_csv(cost_breakdown(frame, dimension))
             )
-        archive.writestr("anomalies.csv", anomalies.to_csv(index=False))
+        archive.writestr("anomalies.csv", _safe_csv(anomalies))
         recs = pd.DataFrame([item.model_dump() for item in recommendations])
-        archive.writestr("recommendations.csv", recs.to_csv(index=False))
+        archive.writestr("recommendations.csv", _safe_csv(recs))
         archive.writestr(
             "README.txt",
             f"AWS Cost Optimization Dashboard analysis export\nData source: {data_label}\n"

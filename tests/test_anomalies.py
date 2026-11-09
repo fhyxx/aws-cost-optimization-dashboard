@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from aws_cost_dashboard.anomalies import detect_cost_anomalies
 
@@ -27,7 +28,7 @@ def test_explainable_rule_flags_monthly_spike() -> None:
     assert row["billing_month"] == "2025-05"
     assert row["change_usd"] == 248.0
     assert "MoM spike" in row["rule"]
-    assert "not a root-cause finding" in row["explanation"]
+    assert "does not identify root cause" in row["explanation"]
 
 
 def test_stable_months_do_not_flag() -> None:
@@ -41,3 +42,34 @@ def test_sample_dataset_contains_introduced_anomalies() -> None:
     found = detect_cost_anomalies(frame)
     assert "2026-04" in set(found["billing_month"])
     assert "2026-02" in set(found["billing_month"])
+
+
+def test_missing_month_is_not_mistaken_for_previous_month() -> None:
+    frame = make_series([100, 100, 100, 500]).drop(index=3).copy()
+    frame.loc[len(frame)] = {
+        "billing_month": "2025-05",
+        "account": "demo-commerce",
+        "region": "us-east-1",
+        "service": "Amazon EC2",
+        "unblended_cost": 500.0,
+    }
+    found = detect_cost_anomalies(frame, percent_threshold=50, minimum_increase_usd=100)
+    may = found.loc[found["billing_month"] == "2025-05"].iloc[0]
+    assert may["previous_month_usd"] is None
+    assert "MoM spike" not in may["rule"]
+    assert "rolling-median spike" in may["rule"]
+    assert may["confidence"] == "Low"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"history_months": 0},
+        {"minimum_increase_usd": -1},
+        {"percent_threshold": float("nan")},
+        {"median_multiple": 0},
+    ],
+)
+def test_invalid_anomaly_rule_configuration_is_rejected(overrides: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="Anomaly thresholds"):
+        detect_cost_anomalies(make_series([100, 200]), **overrides)  # type: ignore[arg-type]

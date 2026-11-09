@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
+
 import pandas as pd
 import pytest
 
-from aws_cost_dashboard.schemas import validate_billing_data
+from aws_cost_dashboard.schemas import read_billing_csv, validate_billing_data
 
 
 def test_normalized_csv_schema_is_validated_and_sorted() -> None:
@@ -72,3 +74,69 @@ def test_negative_cost_adjustment_is_allowed_but_invalid_month_is_rejected() -> 
     invalid = valid.assign(month="not-a-month")
     with pytest.raises(ValueError, match="failed validation"):
         validate_billing_data(invalid)
+
+
+def test_optional_currency_must_be_usd() -> None:
+    raw = pd.DataFrame(
+        [
+            {
+                "month": "2025-01",
+                "account": "demo",
+                "region": "us-east-1",
+                "service": "Amazon EC2",
+                "cost": 10.0,
+                "currency_code": "USD",
+            }
+        ]
+    )
+    assert validate_billing_data(raw).iloc[0]["currency"] == "USD"
+    raw.loc[0, "currency_code"] = "EUR"
+    with pytest.raises(ValueError, match="currency.*USD"):
+        validate_billing_data(raw)
+
+
+def test_mixed_currency_file_is_rejected() -> None:
+    raw = pd.DataFrame(
+        [
+            {
+                "month": "2025-01",
+                "account": "a",
+                "region": "us-east-1",
+                "service": "S3",
+                "cost": 10,
+                "currency": "USD",
+            },
+            {
+                "month": "2025-01",
+                "account": "b",
+                "region": "eu-west-1",
+                "service": "S3",
+                "cost": 10,
+                "currency": "EUR",
+            },
+        ]
+    )
+    with pytest.raises(ValueError, match="currency.*USD"):
+        validate_billing_data(raw)
+
+
+def test_malformed_csv_has_actionable_error() -> None:
+    malformed = BytesIO(b"a,b\n1,2\n3,4,5,6\n")
+    with pytest.raises(ValueError, match="Could not read this CSV"):
+        read_billing_csv(malformed)
+
+
+def test_empty_upload_and_oversized_record_set_are_rejected() -> None:
+    with pytest.raises(ValueError, match="contains no billing rows"):
+        validate_billing_data(pd.DataFrame())
+    oversized = pd.DataFrame(
+        {
+            "billing_month": ["2025-01"] * 500_001,
+            "account": ["demo"] * 500_001,
+            "region": ["us-east-1"] * 500_001,
+            "service": ["S3"] * 500_001,
+            "unblended_cost": [1] * 500_001,
+        }
+    )
+    with pytest.raises(ValueError, match="more than 500,000"):
+        validate_billing_data(oversized)
