@@ -81,6 +81,22 @@ Regenerate the checked-in sample deterministically with:
 - The initial schema expects monthly USD amounts and one billing perspective. Currency conversion and CUR-specific amortization semantics are not implemented.
 - Synthetic records have deliberately injected anomalies; do not treat them as client requirements or production evidence.
 
-## Screenshots
+## Visual Evidence
 
-Screenshots will be added after the application has been run and visually inspected. No visual-verification claim is made by this placeholder.
+The following supplied screenshots show the dashboard with synthetic demonstration data. They are desktop captures at 1366 × 768. Mobile visual verification is still outstanding. The anomaly review image predates the latest anomaly-ranking correction and does not demonstrate the corrected ranking/table.
+
+### Executive dashboard
+
+![Executive dashboard overview](docs/screenshots/dashboard-overview.png)
+
+### Monthly spend trends
+
+![Monthly spend trends](docs/screenshots/spend-trends.png)
+
+### Anomaly review
+
+![Anomaly review captured before the latest anomaly-ranking correction](docs/screenshots/anomaly-review.png)
+
+### Optimization recommendations
+
+![Optimization recommendations](docs/screenshots/recommendations.png)
