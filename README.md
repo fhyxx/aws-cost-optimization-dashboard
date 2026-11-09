@@ -70,6 +70,14 @@ Regenerate the checked-in sample deterministically with:
 - `sample_data.py` — loads and validates the synthetic dataset.
 - `scripts/generate_sample_data.py` — seeded dataset generator.
 
+## Analysis methodology
+
+- All calculations run on the records that remain after the selected month, account, region and service filters. Anomaly detection groups records by account, Region and service, then sums each group to one monthly billed amount.
+- The month-over-month rule compares only with the immediately preceding calendar month. It flags an increase only when both the configured percentage threshold (default 50%) and minimum dollar increase (default $100) are met. A missing prior month, or a prior-month value of zero or less, cannot produce a percentage-based flag.
+- The rolling-median rule compares the current month with the median of observed values in the preceding six-calendar-month window. It requires at least three observed prior months, a current value at least 1.5 times the median, and at least the configured dollar increase (default $100). Missing months are not filled with zero.
+- Either rule can flag a group; both can trigger. `change_usd` is the actual month-over-month delta when that prior month exists (otherwise the median deviation), while `anomaly_increase_usd` is the largest increase among the rule(s) that actually triggered. The recommendation that calls out the largest anomaly is selected using `anomaly_increase_usd`, not the unrelated MoM delta.
+- Rule agreement means both heuristics triggered; it is not a statistical confidence score. The app deliberately labels anomaly confidence Low and does not infer root cause.
+
 ## Limitations
 
 - This is a billing analytics aid, not an AWS Cost Explorer replacement or a financial forecast.
