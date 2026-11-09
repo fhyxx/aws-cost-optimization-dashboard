@@ -54,7 +54,8 @@ def test_median_only_anomaly_uses_median_deviation_for_ranking() -> None:
     )
     row = anomalies.loc[anomalies["billing_month"] == "2025-05"].iloc[0]
     assert row["rule"] == "rolling-median spike"
-    assert row["change_usd"] == 100.0
+    assert row["change_usd"] == 0.0
+    assert row["anomaly_increase_usd"] == 100.0
     assert row["change_percent"] == 0.0
 
 def test_missing_month_is_not_mistaken_for_previous_month() -> None:
