@@ -91,7 +91,7 @@ Regenerate the checked-in sample deterministically with:
 
 ## Visual Evidence
 
-The following supplied screenshots show the dashboard with synthetic demonstration data. They are desktop captures at 1366 × 768. Mobile visual verification is still outstanding. The anomaly review image predates the latest anomaly-ranking correction and does not demonstrate the corrected ranking/table.
+The checked-in screenshots show the dashboard with synthetic demonstration data in desktop captures at 1366 × 768. Mobile visual review was completed on 10 November 2026 using four user-supplied phone screenshots of the deployed app; those phone captures have not been committed as repository assets. The review confirmed stacked mobile KPI cards and readable spend trends, while wide anomaly/recommendation tables still require horizontal scrolling and can initially show truncated columns. The anomaly review image predates the latest anomaly-ranking correction and does not demonstrate the corrected ranking/table.
 
 ### Executive dashboard
 
