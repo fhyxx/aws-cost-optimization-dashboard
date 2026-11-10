@@ -169,7 +169,11 @@ def render_responsive_table(
             + "</div><dl>"
             + metrics
             + "</dl>"
-            + ("<details><summary>More details</summary>" + details + "</details>" if details else "")
+            + (
+                "<details><summary>More details</summary>" + details + "</details>"
+                if details
+                else ""
+            )
             + "</article>"
         )
     cards.append("</div>")
@@ -351,7 +355,14 @@ else:
         title_column="service",
         subtitle_columns=("billing_month", "account", "region"),
         metric_columns=("actual_usd", "anomaly_increase_usd", "rule", "confidence"),
-        detail_columns=("previous_month_usd", "history_median_usd", "change_usd", "change_percent", "rule_agreement", "explanation"),
+        detail_columns=(
+            "previous_month_usd",
+            "history_median_usd",
+            "change_usd",
+            "change_percent",
+            "rule_agreement",
+            "explanation",
+        ),
     )
 
 st.subheader("Optimization recommendations")
