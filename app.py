@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from html import escape
 from pathlib import Path
 
 import plotly.express as px
@@ -61,10 +62,36 @@ st.markdown(
             min-width: 0 !important;
         }
         [data-testid="stDataFrame"],
-        [data-testid="stTable"] {
-            max-width: 100%;
-            overflow-x: auto !important;
+        [data-testid="stTable"] { display: none !important; }
+        .mobile-analysis-cards {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.75rem;
+            width: 100%;
         }
+        .analysis-card {
+            min-width: 0;
+            padding: 0.9rem;
+            border: 1px solid rgba(128, 128, 128, 0.28);
+            border-radius: 0.75rem;
+            overflow-wrap: anywhere;
+        }
+        .analysis-card h4 { margin: 0 0 0.25rem; font-size: 1rem; }
+        .analysis-card .card-subtitle {
+            opacity: 0.72;
+            font-size: 0.82rem;
+            margin-bottom: 0.65rem;
+        }
+        .analysis-card dl {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 0.55rem;
+            margin: 0;
+        }
+        .analysis-card dt { font-size: 0.72rem; opacity: 0.7; }
+        .analysis-card dd { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; }
+        .analysis-card details { margin-top: 0.7rem; font-size: 0.85rem; }
+        .analysis-card details p { margin: 0.5rem 0 0; }
         [data-testid="stTabs"] [role="tablist"] {
             flex-wrap: wrap;
             gap: 0.25rem;
@@ -77,6 +104,8 @@ st.markdown(
             padding: 0.75rem;
         }
     }
+    }
+    .mobile-analysis-cards { display: none; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -85,6 +114,66 @@ st.markdown(
 
 def money(value: float) -> str:
     return f"${value:,.2f}"
+
+
+def _display_value(value: object, column: str) -> str:
+    """Format a table value for compact mobile cards without losing its meaning."""
+    if pd.isna(value):
+        return "—"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if column.endswith("_usd") or column == "spend":
+            return money(float(value))
+        if column.endswith("_percent"):
+            return f"{float(value):,.1f}%"
+        return f"{value:,}" if isinstance(value, int) else f"{value:,.2f}"
+    return str(value)
+
+
+def render_responsive_table(
+    frame: pd.DataFrame,
+    *,
+    title_column: str,
+    subtitle_columns: tuple[str, ...] = (),
+    metric_columns: tuple[str, ...] = (),
+    detail_columns: tuple[str, ...] = (),
+) -> None:
+    """Show a full table on desktop and readable, stacked evidence cards on phones."""
+    st.dataframe(frame, hide_index=True, width="stretch")
+    cards: list[str] = ['<div class="mobile-analysis-cards">']
+    for record in frame.to_dict(orient="records"):
+        title = escape(_display_value(record.get(title_column), title_column))
+        subtitle = " · ".join(
+            escape(_display_value(record.get(column), column)) for column in subtitle_columns
+        )
+        metrics = "".join(
+            "<div><dt>"
+            + escape(column.replace("_", " ").title())
+            + "</dt><dd>"
+            + escape(_display_value(record.get(column), column))
+            + "</dd></div>"
+            for column in metric_columns
+        )
+        details = "".join(
+            "<p><strong>"
+            + escape(column.replace("_", " ").title())
+            + ":</strong> "
+            + escape(_display_value(record.get(column), column))
+            + "</p>"
+            for column in detail_columns
+        )
+        cards.append(
+            '<article class="analysis-card"><h4>'
+            + title
+            + '</h4><div class="card-subtitle">'
+            + subtitle
+            + "</div><dl>"
+            + metrics
+            + "</dl>"
+            + ("<details><summary>More details</summary>" + details + "</details>" if details else "")
+            + "</article>"
+        )
+    cards.append("</div>")
+    st.markdown("".join(cards), unsafe_allow_html=True)
 
 
 st.title("AWS Cost Intelligence")
@@ -233,12 +322,13 @@ breakdown_tabs = st.tabs(["AWS service", "Region", "Account"])
 for tab, dimension in zip(breakdown_tabs, ("service", "region", "account"), strict=True):
     with tab:
         breakdown = cost_breakdown(filtered, dimension)
-        st.dataframe(
-            breakdown.rename(
-                columns={dimension: dimension.replace("_", " ").title(), "spend": "Spend (USD)"}
-            ),
-            hide_index=True,
-            width="stretch",
+        display_breakdown = breakdown.rename(
+            columns={dimension: dimension.replace("_", " ").title(), "spend": "Spend (USD)"}
+        )
+        render_responsive_table(
+            display_breakdown,
+            title_column=dimension.replace("_", " ").title(),
+            metric_columns=("Spend (USD)",),
         )
 
 st.subheader("Cost anomaly review")
@@ -256,7 +346,13 @@ anomalies = detect_cost_anomalies(
 if anomalies.empty:
     st.success("No cost spikes matched the current rule and filters.")
 else:
-    st.dataframe(anomalies, hide_index=True, width="stretch")
+    render_responsive_table(
+        anomalies,
+        title_column="service",
+        subtitle_columns=("billing_month", "account", "region"),
+        metric_columns=("actual_usd", "anomaly_increase_usd", "rule", "confidence"),
+        detail_columns=("previous_month_usd", "history_median_usd", "change_usd", "change_percent", "rule_agreement", "explanation"),
+    )
 
 st.subheader("Optimization recommendations")
 recommendations = build_recommendations(
@@ -274,7 +370,13 @@ recommendations_table = recommendations_frame(recommendations)
 if recommendations_table.empty:
     st.write("No recommendations were generated for the selected data.")
 else:
-    st.dataframe(recommendations_table, hide_index=True, width="stretch")
+    render_responsive_table(
+        recommendations_table,
+        title_column="title",
+        subtitle_columns=("priority", "confidence"),
+        metric_columns=("evidence_type", "savings_low_usd", "savings_high_usd"),
+        detail_columns=("evidence", "savings_basis", "next_step"),
+    )
 
 st.subheader("Export analysis")
 export_bytes = build_export_bundle(filtered, anomalies, recommendations, data_label=source_label)
