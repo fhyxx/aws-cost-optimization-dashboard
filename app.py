@@ -6,6 +6,7 @@ import sys
 from html import escape
 from pathlib import Path
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -103,7 +104,6 @@ st.markdown(
         [data-testid="stFileUploader"] section {
             padding: 0.75rem;
         }
-    }
     }
     .mobile-analysis-cards { display: none; }
     </style>
