@@ -29,7 +29,57 @@ st.set_page_config(
     page_title="AWS Cost Intelligence",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
+)
+
+# Streamlit's components are responsive by default, but wide column groups and
+# grid-based tables can become difficult to use on narrow phone screens.
+st.markdown(
+    """
+    <style>
+    @media (max-width: 768px) {
+        [data-testid="stAppViewContainer"] .main .block-container {
+            padding: 1rem 0.85rem 2rem;
+            max-width: 100%;
+        }
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 0.75rem !important;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+        [data-testid="stMetric"] {
+            padding: 0.75rem;
+            border: 1px solid rgba(128, 128, 128, 0.22);
+            border-radius: 0.65rem;
+        }
+        [data-testid="stPlotlyChart"] {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {
+            max-width: 100%;
+            overflow-x: auto !important;
+        }
+        [data-testid="stTabs"] [role="tablist"] {
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        [data-testid="stTabs"] button[role="tab"] {
+            flex: 1 1 auto;
+            white-space: normal;
+        }
+        [data-testid="stFileUploader"] section {
+            padding: 0.75rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -151,7 +201,11 @@ with left:
     )
     trend_figure.update_traces(connectgaps=False)
     trend_figure.update_layout(margin={"l": 8, "r": 8, "t": 12, "b": 8}, hovermode="x unified")
-    st.plotly_chart(trend_figure, width="stretch")
+    st.plotly_chart(
+        trend_figure,
+        width="stretch",
+        config={"responsive": True, "displayModeBar": False},
+    )
 with right:
     st.subheader("Latest-month service mix")
     latest = filtered[filtered["billing_month"] == kpis.current_month]
@@ -168,7 +222,11 @@ with right:
         margin={"l": 8, "r": 8, "t": 12, "b": 8},
         yaxis={"categoryorder": "total ascending"},
     )
-    st.plotly_chart(service_figure, width="stretch")
+    st.plotly_chart(
+        service_figure,
+        width="stretch",
+        config={"responsive": True, "displayModeBar": False},
+    )
 
 st.subheader("Cost breakdown")
 breakdown_tabs = st.tabs(["AWS service", "Region", "Account"])
